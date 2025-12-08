@@ -3,9 +3,9 @@ description:
 globs: 
 alwaysApply: true
 ---
-# AI Rules for {app-name}
+# AI Rules for DealSPy
 
-{project-description}
+Serwis do śledzenia promocji w sklepach spożywczych na podstawie gazetek promocyjnych.
 
 ## Tech Stack
 
