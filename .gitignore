@@ -22,3 +22,9 @@ pnpm-debug.log*
 
 # jetbrains setting folder
 .idea/
+
+# prompt files
+.prompt/
+
+# junior documents
+.junior/
