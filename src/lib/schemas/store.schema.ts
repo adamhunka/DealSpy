@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { slugSchema } from "./common.schema";
 
 /**
  * Schema walidacji parametru slug dla store
@@ -14,11 +15,7 @@ import { z } from "zod";
  * - max length: zapobiega DoS przez długie stringi
  */
 export const storeSlugParamSchema = z.object({
-  slug: z
-    .string({ required_error: "Store slug is required" })
-    .min(1, "Store slug cannot be empty")
-    .max(100, "Store slug is too long")
-    .regex(/^[a-z0-9-]+$/, "Store slug must contain only lowercase letters, numbers, and hyphens"),
+  slug: slugSchema,
 });
 
 /**
