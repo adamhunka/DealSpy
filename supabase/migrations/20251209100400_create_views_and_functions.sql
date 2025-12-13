@@ -95,7 +95,8 @@ returns table (
   valid_to date,
   web_image_path text,
   page_number int,
-  relevance_score real
+  relevance_score real,
+  total_count bigint
 ) as $$
 begin
   return query
@@ -126,7 +127,8 @@ begin
         ts_rank(p.name_tsvector, plainto_tsquery('simple', search_query)) +
         similarity(p.name, search_query) * 0.5
       else 0
-    end as relevance_score
+    end as relevance_score,
+    count(*) over() as total_count
   from products p
   inner join flyer_pages fp on p.flyer_page_id = fp.id
   inner join flyers f on fp.flyer_id = f.id

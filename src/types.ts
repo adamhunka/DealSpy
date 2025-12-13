@@ -156,6 +156,26 @@ export interface ProductSearchDTO extends ProductDTO {
  */
 export type ProductRecentDTO = Omit<ProductDTO, "bbox" | "description" | "promo_conditions">;
 
+/**
+ * ProductSearchParams - parametry wyszukiwania produktów
+ *
+ * Endpoint: GET /api/products
+ *
+ * Parametry:
+ * - q: string - zapytanie wyszukiwania
+ * - store: string - slug sklepu
+ * - category: string - slug kategorii
+ * - sort: string - metoda sortowania
+ * - limit: number - liczba wyników na stronę
+ * - offset: number - przesunięcie dla paginacji
+ */
+export interface ProductSearchParams extends PaginationParams {
+  q?: string;
+  store?: string;
+  category?: string;
+  sort?: SortOption;
+}
+
 // ----------------------------------------------------------------------------
 // Flyers
 // ----------------------------------------------------------------------------

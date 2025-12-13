@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { StoreService } from "@/lib/services/store.service";
 import { storeSlugParamSchema } from "@/lib/schemas/store.schema";
-import { createErrorResponse, createSuccessResponse, formatZodErrors } from "@/lib/halpers/api-response.helper";
+import { createErrorResponse, createSuccessResponse, formatZodErrors } from "@/lib/helpers/api-response.helper";
 
 /**
  * Wyłącz pre-rendering dla tego endpointa

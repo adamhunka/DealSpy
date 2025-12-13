@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { CategoryService } from "@/lib/services/category.service";
 import { categorySlugParamSchema } from "@/lib/schemas/category.schema";
-import { createErrorResponse, createSuccessResponse, formatZodErrors } from "@/lib/halpers/api-response.helper";
+import { createErrorResponse, createSuccessResponse, formatZodErrors } from "@/lib/helpers/api-response.helper";
 
 export const prerender = false;
 

@@ -276,6 +276,9 @@ create table products (
 create trigger handle_updated_at before update on products
   for each row execute function moddatetime(updated_at);
 
+-- optimize queries by creation date
+create index idx_products_created_at on products(created_at desc);
+
 -- optimize queries by parent flyer page
 create index idx_products_flyer_page_id on products(flyer_page_id);
 

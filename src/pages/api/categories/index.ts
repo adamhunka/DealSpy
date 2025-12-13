@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { CategoryService } from "@/lib/services/category.service";
-import { createErrorResponse, createSuccessResponse } from "@/lib/halpers/api-response.helper";
+import { createErrorResponse, createSuccessResponse } from "@/lib/helpers/api-response.helper";
 
 export const prerender = false;
 

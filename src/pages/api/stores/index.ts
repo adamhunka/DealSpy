@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { StoreService } from "@/lib/services/store.service";
-import { createErrorResponse, createSuccessResponse } from "@/lib/halpers/api-response.helper";
+import { createErrorResponse, createSuccessResponse } from "@/lib/helpers/api-response.helper";
 
 /**
  * Wyłącz pre-rendering dla tego endpointa

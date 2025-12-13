@@ -911,22 +911,54 @@ SELECT * FROM products WHERE id > :last_id ORDER BY id LIMIT 20;
 **Plik:** `src/lib/services/product.service.ts`
 
 **Zadania:**
-1. Importuj typy: `SupabaseClient`, DTOs z `@/types`
-2. Utwórz klasę `ProductService` z constructor przyjmującym `supabase`
-3. Implementuj prywatną metodę `transformToProductDTO()` dla mapowania
-4. Implementuj prywatną metodę `transformToProductSearchDTO()` dla mapowania search results
-5. Implementuj prywatną metodę `transformToProductRecentDTO()` dla mapowania recent products
-6. Implementuj metodę `searchProducts(params: ProductSearchParams)`:
+1. Importuj typy: `SupabaseClient`, DTOs z `@/types`, `Product`, `BBox`
+2. Zdefiniuj typy dla query results (bez użycia `any`):
+   ```typescript
+   // Typ dla pojedynczego produktu z tabeli products
+   type ProductSelect = Pick<
+     Product,
+     "id" | "name" | "price" | "currency" | "unit" | "description" | 
+     "promo_conditions" | "bbox" | "created_at"
+   >;
+   
+   // Typ dla produktu z JOIN (products + categories + stores + flyers + flyer_pages)
+   // Te pola nie istnieją w Product, więc definiujemy nowy typ
+   type ProductWithRelations = ProductSelect & {
+     category_name: string;
+     category_slug: string;
+     store_name: string;
+     store_slug: string;
+     store_logo: string;
+     valid_from: string;
+     valid_to: string;
+     web_image_url: string;
+     page_number: number;
+   };
+   
+   // Typ dla search results (z relevance_score)
+   type ProductSearchResult = ProductWithRelations & {
+     relevance_score: number;
+   };
+   
+   // Typ dla recent products (bez bbox, description, promo_conditions)
+   type ProductRecentSelect = Omit<ProductWithRelations, "bbox" | "description" | "promo_conditions">;
+   ```
+3. Utwórz klasę `ProductService` z constructor przyjmującym `supabase`
+4. Implementuj prywatne metody transformacji z właściwymi typami:
+   - `transformToProductDTO(product: ProductWithRelations): ProductDTO`
+   - `transformToProductSearchDTO(product: ProductSearchResult): ProductSearchDTO`
+   - `transformToProductRecentDTO(product: ProductRecentSelect): ProductRecentDTO`
+5. Implementuj metodę `searchProducts(params: ProductSearchParams)`:
    - Wywołaj RPC function `search_products()`
    - Obsłuż błędy bazy danych
    - Transform results do `ProductSearchDTO[]`
    - Zwróć obiekt z `data` i `pagination`
-7. Implementuj metodę `getProductById(id: string)`:
+6. Implementuj metodę `getProductById(id: string)`:
    - Query view `v_active_products` z JOIN
    - `.eq('id', id).maybeSingle()`
    - Obsłuż błędy
    - Transform result do `ProductDTO` lub null
-8. Implementuj metodę `getRecentProducts(limit: number)`:
+7. Implementuj metodę `getRecentProducts(limit: number)`:
    - Query view `v_active_products`
    - SELECT bez bbox, description, promo_conditions
    - ORDER BY created_at DESC LIMIT :limit
@@ -935,26 +967,111 @@ SELECT * FROM products WHERE id > :last_id ORDER BY id LIMIT 20;
 
 **Przykładowa struktura:**
 ```typescript
+import type { SupabaseClient } from "@/db/supabase.client";
+import type { Product, ProductDTO, ProductSearchDTO, ProductRecentDTO, BBox } from "@/types";
+
+// Typy dla query results (zamiast any)
+type ProductSelect = Pick<
+  Product,
+  "id" | "name" | "price" | "currency" | "unit" | "description" | 
+  "promo_conditions" | "bbox" | "created_at"
+>;
+
+type ProductWithRelations = ProductSelect & {
+  category_name: string;
+  category_slug: string;
+  store_name: string;
+  store_slug: string;
+  store_logo: string;
+  valid_from: string;
+  valid_to: string;
+  web_image_url: string;
+  page_number: number;
+};
+
+type ProductSearchResult = ProductWithRelations & {
+  relevance_score: number;
+};
+
+type ProductRecentSelect = Omit<ProductWithRelations, "bbox" | "description" | "promo_conditions">;
+
 export class ProductService {
   constructor(private supabase: SupabaseClient) {}
   
-  private transformToProductDTO(row: any): ProductDTO { ... }
-  private transformToProductSearchDTO(row: any): ProductSearchDTO { ... }
-  private transformToProductRecentDTO(row: any): ProductRecentDTO { ... }
+  private transformToProductDTO(product: ProductWithRelations): ProductDTO {
+    return {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      currency: product.currency,
+      unit: product.unit,
+      description: product.description,
+      promo_conditions: product.promo_conditions,
+      bbox: product.bbox as BBox | null,
+      created_at: product.created_at,
+      category_name: product.category_name,
+      category_slug: product.category_slug,
+      store_name: product.store_name,
+      store_slug: product.store_slug,
+      store_logo: product.store_logo,
+      valid_from: product.valid_from,
+      valid_to: product.valid_to,
+      web_image_url: product.web_image_url,
+      page_number: product.page_number,
+    };
+  }
   
-  async searchProducts(params: ProductSearchParams) { ... }
-  async getProductById(id: string): Promise<ProductDTO | null> { ... }
-  async getRecentProducts(limit: number): Promise<ProductRecentDTO[]> { ... }
+  private transformToProductSearchDTO(product: ProductSearchResult): ProductSearchDTO {
+    return {
+      ...this.transformToProductDTO(product),
+      relevance_score: product.relevance_score,
+    };
+  }
+  
+  private transformToProductRecentDTO(product: ProductRecentSelect): ProductRecentDTO {
+    return {
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      currency: product.currency,
+      unit: product.unit,
+      created_at: product.created_at,
+      category_name: product.category_name,
+      category_slug: product.category_slug,
+      store_name: product.store_name,
+      store_slug: product.store_slug,
+      store_logo: product.store_logo,
+      valid_from: product.valid_from,
+      valid_to: product.valid_to,
+      web_image_url: product.web_image_url,
+      page_number: product.page_number,
+    };
+  }
+  
+  async searchProducts(params: ProductSearchParams) { 
+    // Implementation here
+  }
+  
+  async getProductById(id: string): Promise<ProductDTO | null> { 
+    // Implementation here
+  }
+  
+  async getRecentProducts(limit: number): Promise<ProductRecentDTO[]> { 
+    // Implementation here
+  }
 }
 ```
 
 **Kryteria akceptacji:**
 - [ ] Service używa SupabaseClient type z `@/db/supabase.client.ts`
+- [ ] **NIE używa typu `any`** - wszystkie query results mają właściwe typy
+- [ ] Typy dla query results są zdefiniowane (ProductSelect, ProductWithRelations, etc.)
 - [ ] Wszystkie błędy bazy danych są obsłużone (try-catch)
 - [ ] Błędy są logowane do console.error z kontekstem
 - [ ] Metody zwracają właściwe DTOs
 - [ ] Early returns dla error conditions
 - [ ] Kod jest czytelny i dobrze udokumentowany
+- [ ] TypeScript type-checker nie zgłasza błędów
 
 **Szacowany czas:** 2-3 godziny
 
@@ -1380,6 +1497,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
    - Piszę czytelny, self-documenting code
    - Dodawaj komentarze dla skomplikowanej logiki
    - Testuj wszystkie edge cases
+   - **NIGDY nie używaj typu `any`** - zawsze definiuj właściwe typy
+   - Dla query results z JOIN definiuj dedykowane typy (ProductWithRelations, etc.)
 
 5. **Współpraca z zespołem:**
    - Komunikuj problemy wcześnie

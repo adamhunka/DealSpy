@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ApiError, ApiResponse, ErrorCode, ErrorDetail } from "@/types";
+import type { ApiError, ApiResponse, ErrorCode, ErrorDetail, PaginationMeta } from "@/types";
 
 /**
  * Tworzy standardowy error response w formacie ApiError
@@ -57,8 +57,16 @@ export function createErrorResponse(
  * const stores: StoreDTO[] = [...];
  * return createSuccessResponse(stores, 200, 300);
  */
-export function createSuccessResponse<T>(data: T, status = 200, cacheMaxAge?: number): Response {
-  const responseBody: ApiResponse<T> = { data };
+export function createSuccessResponse<T>(
+  data: T,
+  status = 200,
+  pagination?: PaginationMeta,
+  cacheMaxAge?: number
+): Response {
+  const responseBody: ApiResponse<T> = {
+    data,
+    ...(pagination && { pagination }),
+  };
   const headers: Record<string, string> = {
     "Content-Type": "application/json; charset=utf-8",
   };
