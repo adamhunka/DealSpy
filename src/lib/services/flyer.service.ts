@@ -1,5 +1,19 @@
 import type { SupabaseClient } from "@/db/supabase.client";
-import type { FlyerListItemDTO, FlyerDetailDTO, FlyerPageDTO, FlyerProductDTO, BBox, Flyer, FlyerPage } from "@/types";
+import type {
+  AdminFlyerDetailDTO,
+  AdminFlyerPageDetailDTO,
+  FlyerListItemDTO,
+  FlyerDetailDTO,
+  FlyerPageDTO,
+  FlyerProductDTO,
+  BBox,
+  Flyer,
+  FlyerPage,
+  FlyerStatus,
+  AdminFlyerListItemDTO,
+  CreateFlyerCommand,
+  UpdateFlyerCommand,
+} from "@/types";
 
 /**
  * Typy pomocnicze dla danych zwracanych przez Supabase
@@ -48,6 +62,49 @@ interface FlyerProductRow {
     web_image_path: string | null;
     flyer_id: string;
   };
+}
+
+// Lista gazetek - rezultat query z JOINami
+type AdminFlyerListRow = Pick<
+  Flyer,
+  "id" | "valid_from" | "valid_to" | "status" | "deleted_at" | "created_at" | "updated_at" | "verified_by"
+> & {
+  stores: {
+    name: string;
+    slug: string;
+  };
+  flyer_pages: { count: number }[];
+  profiles: {
+    full_name: string | null;
+  } | null;
+};
+
+// Szczegóły gazetki - rezultat query głównej gazetki
+type AdminFlyerRow = Pick<
+  Flyer,
+  "id" | "store_id" | "valid_from" | "valid_to" | "status" | "deleted_at" | "created_at" | "updated_at" | "verified_by"
+> & {
+  stores: {
+    name: string;
+    slug: string;
+  };
+  profiles: {
+    full_name: string | null;
+  } | null;
+};
+
+// Strona gazetki w Admin API
+interface AdminFlyerPageRow {
+  id: string;
+  page_number: number;
+  original_image_path: string | null;
+  web_image_path: string | null;
+  status: FlyerStatus;
+  raw_ai_data: unknown;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+  products: { count: number }[];
 }
 
 /**
@@ -297,6 +354,271 @@ export class FlyerService {
     return {
       products,
       total: count ?? 0,
+    };
+  }
+
+  async listAdminFlyers(params: {
+    store?: string;
+    status?: FlyerStatus;
+    include_deleted?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ flyers: AdminFlyerListItemDTO[]; total: number }> {
+    const { store, status, include_deleted = false, limit = 20, offset = 0 } = params;
+
+    let query = this.supabase
+      .from("flyers")
+      .select(
+        "id, valid_from, valid_to, status, deleted_at, created_at, updated_at, verified_by, stores!inner ( name, slug ), flyer_pages (count), profiles!flyers_verified_by_fkey ( full_name )",
+        { count: "exact" }
+      );
+
+    if (!include_deleted) {
+      query = query.is("deleted_at", null);
+    }
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    if (store) {
+      query = query.eq("stores.slug", store);
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error("Failed to list admin flyers:", { error, params });
+      throw new Error("Database query failed");
+    }
+
+    if (!data || data.length === 0) {
+      return { flyers: [], total: 0 };
+    }
+
+    const flyers = data.map((row): AdminFlyerListItemDTO => {
+      const flyerRow = row as AdminFlyerListRow;
+
+      return {
+        id: flyerRow.id,
+        store_name: flyerRow.stores.name,
+        store_slug: flyerRow.stores.slug,
+        valid_from: flyerRow.valid_from,
+        valid_to: flyerRow.valid_to,
+        status: flyerRow.status,
+        page_count: flyerRow.flyer_pages?.[0]?.count ?? 0,
+        verified_pages: 0, // TODO: Dodać query dla verified_pages
+        deleted_at: flyerRow.deleted_at,
+        created_at: flyerRow.created_at,
+        updated_at: flyerRow.updated_at,
+        verified_by: flyerRow.verified_by,
+        verified_by_name: flyerRow.profiles?.full_name ?? null,
+      };
+    });
+
+    return {
+      flyers,
+      total: count ?? 0,
+    };
+  }
+
+  async getAdminFlyerById(id: string): Promise<AdminFlyerDetailDTO | null> {
+    const { data: flyerData, error: flyerError } = await this.supabase
+      .from("flyers")
+      .select(
+        "id, store_id, valid_from, valid_to, status, deleted_at, created_at, updated_at, verified_by, stores!inner ( name, slug ), profiles!flyers_verified_by_fkey ( full_name)"
+      )
+      .eq("id", id)
+      .maybeSingle();
+
+    if (flyerError) {
+      console.error("Failed to get admin flyer:", { error: flyerError, id });
+      throw new Error("Database query failed");
+    }
+
+    if (!flyerData) {
+      return null;
+    }
+
+    const { data: pagesData, error: pagesError } = await this.supabase
+      .from("flyer_pages")
+      .select(
+        "id, page_number, original_image_path, web_image_path, status, raw_ai_data, error_message, created_at, updated_at, products (count)"
+      )
+      .eq("flyer_id", id)
+      .order("page_number", { ascending: true });
+
+    if (pagesError) {
+      console.error("Failed to get admin flyer pages:", { error: pagesError, id });
+      throw new Error("Database query failed");
+    }
+
+    const pages: AdminFlyerPageDetailDTO[] = (pagesData ?? []).map((page): AdminFlyerPageDetailDTO => {
+      const pageRow = page as AdminFlyerPageRow;
+
+      return {
+        id: pageRow.id,
+        page_number: pageRow.page_number,
+        original_image_url: this.generateStorageUrl("flyer_originals", pageRow.original_image_path ?? ""),
+        web_image_url: this.generateStorageUrl("public_flyers", pageRow.web_image_path ?? ""),
+        status: pageRow.status,
+        product_count: pageRow.products?.[0]?.count ?? 0,
+        has_raw_ai_data: pageRow.raw_ai_data !== null,
+        error_message: pageRow.error_message,
+        created_at: pageRow.created_at,
+        updated_at: pageRow.updated_at,
+      };
+    });
+
+    const flyerRow = flyerData as AdminFlyerRow;
+
+    return {
+      id: flyerRow.id,
+      store_id: flyerRow.store_id,
+      store_name: flyerRow.stores.name,
+      store_slug: flyerRow.stores.slug,
+      valid_from: flyerRow.valid_from,
+      valid_to: flyerRow.valid_to,
+      status: flyerRow.status,
+      deleted_at: flyerRow.deleted_at,
+      verified_by: flyerRow.verified_by,
+      verified_by_name: flyerRow.profiles?.full_name ?? null,
+      created_at: flyerRow.created_at,
+      updated_at: flyerRow.updated_at,
+      pages,
+    };
+  }
+
+  async createFlyer(command: CreateFlyerCommand): Promise<AdminFlyerDetailDTO | null> {
+    const { store_id, valid_from, valid_to } = command;
+
+    const storeExists = await this.checkFLyerExists(store_id);
+    if (!storeExists) {
+      return null;
+    }
+
+    const { data: flyerData, error: insertError } = await this.supabase
+      .from("flyers")
+      .insert({
+        store_id,
+        valid_from,
+        valid_to,
+        status: "draft",
+      })
+      .select("id")
+      .single();
+
+    if (insertError) {
+      console.error("Failed to create flyer:", { error: insertError, command });
+      throw new Error("Database query failed");
+    }
+    const flyer = await this.getAdminFlyerById(flyerData.id);
+
+    return flyer;
+  }
+
+  private async checkStoreExists(store_id: string): Promise<boolean> {
+    const { data, error } = await this.supabase.from("stores").select("id").eq("id", store_id).maybeSingle();
+
+    if (error) {
+      console.error("Failed to check store exists:", { error, store_id });
+      throw new Error("Database query failed");
+    }
+
+    return data !== null;
+  }
+
+  async upadateFlyer(id: string, command: UpdateFlyerCommand): Promise<AdminFlyerDetailDTO | null> {
+    const { data: existingFlyer, error: checkError } = await this.supabase
+      .from("flyers")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Failed to check flyer exists:", { error: checkError, id });
+      throw new Error("Database query failed");
+    }
+
+    if (!existingFlyer) {
+      return null;
+    }
+
+    const updateData: Partial<Pick<Flyer, "valid_from" | "valid_to" | "status">> & {
+      updated_at: string;
+    } = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (command.valid_from !== undefined) {
+      updateData.valid_from = command.valid_from;
+    }
+
+    if (command.valid_to !== undefined) {
+      updateData.valid_to = command.valid_to;
+    }
+
+    if (command.status !== undefined) {
+      updateData.status = command.status;
+    }
+
+    const { error: updateError } = await this.supabase.from("flyers").update(updateData).eq("id", id);
+
+    if (updateError) {
+      console.error("Failed to update flyer:", { error: updateError, id, command });
+      throw new Error("Database query failed");
+    }
+
+    const flyer = await this.getAdminFlyerById(id);
+
+    return flyer;
+  }
+
+  async deleteFlyer(id: string): Promise<{
+    id: string;
+    deleted: boolean;
+    deleted_at: string;
+  } | null> {
+    const { data: existingFlyer, error: checkError } = await this.supabase
+      .from("flyers")
+      .select("id, deleted_at")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error("Failed to check flyer exists:", { error: checkError, id });
+      throw new Error("Database query failed");
+    }
+
+    if (!existingFlyer) {
+      return null;
+    }
+
+    if (existingFlyer.deleted_at !== null) {
+      return null;
+    }
+
+    const deleted_at = new Date().toISOString();
+
+    const { error: deleteError } = await this.supabase
+      .from("flyers")
+      .update({
+        deleted_at,
+        updated_at: deleted_at,
+      })
+      .eq("id", id);
+
+    if (deleteError) {
+      console.error("Failed to delete flyer:", { error: deleteError, id });
+      throw new Error("Database query failed");
+    }
+
+    return {
+      id,
+      deleted: true,
+      deleted_at,
     };
   }
 }
