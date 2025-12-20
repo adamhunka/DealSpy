@@ -38,6 +38,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     const supabase = locals.supabase;
     if (!supabase) {
+      // eslint-disable-next-line no-console
       console.error("Supabase client not available in locals");
       return createErrorResponse("INTERNAL_SERVER_ERROR", "Service temporarily unavailable", 500);
     }
@@ -51,6 +52,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     return createSuccessResponse(flyer, 200, undefined, 600);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error("Error in GET /api/flyers/:id:", error);
     return createErrorResponse("INTERNAL_SERVER_ERROR", "Failed to fetch flyer details", 500);
   }

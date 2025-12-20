@@ -13,6 +13,8 @@ import type {
   AdminFlyerListItemDTO,
   CreateFlyerCommand,
   UpdateFlyerCommand,
+  AdminFlyerPageRawDTO,
+  RawAIData,
 } from "@/types";
 
 /**
@@ -172,6 +174,7 @@ export class FlyerService {
       .range(offset, offset + limit - 1);
 
     if (error) {
+      // eslint-disable-next-line no-console
       console.error("Failed to list flyers:", {
         error,
         params: { store, limit, offset },
@@ -226,6 +229,7 @@ export class FlyerService {
       .maybeSingle();
 
     if (flyerError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to get flyer:", { error: flyerError, id });
       throw new Error("Database query failed");
     }
@@ -241,6 +245,7 @@ export class FlyerService {
       .order("page_number", { ascending: true });
 
     if (pagesError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to get flyer pages:", { error: pagesError, id });
       throw new Error("Database query failed");
     }
@@ -288,6 +293,7 @@ export class FlyerService {
       .maybeSingle();
 
     if (error) {
+      // eslint-disable-next-line no-console
       console.error("Failed to check flyer exists:", { error, id });
       throw new Error("Database query failed");
     }
@@ -326,6 +332,7 @@ export class FlyerService {
       .range(offset, offset + limit - 1);
 
     if (error) {
+      // eslint-disable-next-line no-console
       console.error("Failed to get flyer products:", { error, flyerId, params });
       throw new Error("Database query failed");
     }
@@ -390,6 +397,7 @@ export class FlyerService {
       .range(offset, offset + limit - 1);
 
     if (error) {
+      // eslint-disable-next-line no-console
       console.error("Failed to list admin flyers:", { error, params });
       throw new Error("Database query failed");
     }
@@ -434,6 +442,7 @@ export class FlyerService {
       .maybeSingle();
 
     if (flyerError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to get admin flyer:", { error: flyerError, id });
       throw new Error("Database query failed");
     }
@@ -451,6 +460,7 @@ export class FlyerService {
       .order("page_number", { ascending: true });
 
     if (pagesError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to get admin flyer pages:", { error: pagesError, id });
       throw new Error("Database query failed");
     }
@@ -511,6 +521,7 @@ export class FlyerService {
       .single();
 
     if (insertError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to create flyer:", { error: insertError, command });
       throw new Error("Database query failed");
     }
@@ -523,6 +534,7 @@ export class FlyerService {
     const { data, error } = await this.supabase.from("stores").select("id").eq("id", store_id).maybeSingle();
 
     if (error) {
+      // eslint-disable-next-line no-console
       console.error("Failed to check store exists:", { error, store_id });
       throw new Error("Database query failed");
     }
@@ -538,6 +550,7 @@ export class FlyerService {
       .maybeSingle();
 
     if (checkError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to check flyer exists:", { error: checkError, id });
       throw new Error("Database query failed");
     }
@@ -567,6 +580,7 @@ export class FlyerService {
     const { error: updateError } = await this.supabase.from("flyers").update(updateData).eq("id", id);
 
     if (updateError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to update flyer:", { error: updateError, id, command });
       throw new Error("Database query failed");
     }
@@ -588,6 +602,7 @@ export class FlyerService {
       .maybeSingle();
 
     if (checkError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to check flyer exists:", { error: checkError, id });
       throw new Error("Database query failed");
     }
@@ -611,6 +626,7 @@ export class FlyerService {
       .eq("id", id);
 
     if (deleteError) {
+      // eslint-disable-next-line no-console
       console.error("Failed to delete flyer:", { error: deleteError, id });
       throw new Error("Database query failed");
     }
@@ -620,5 +636,206 @@ export class FlyerService {
       deleted: true,
       deleted_at,
     };
+  }
+
+  /**
+   * Pomocnicza: pobiera store_slug dla gazetki
+   *
+   * Używamy tego do budowania ścieżek w Storage:
+   * {store_slug}/{flyer_id}/page-{n}.webp
+   *
+   * @param flyerId - ID gazetki
+   * @returns slug sklepu lub null jeśli nie znaleziono
+   */
+  async getFlyerStoreSlug(flyerID: string): Promise<string | null> {
+    const { data, error } = await this.supabase.from("flyers").select("stores(slug)").eq("id", flyerID).maybeSingle();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to get flyer store slug:", { error, flyerID });
+      throw new Error("Database query failed");
+    }
+
+    return data?.stores?.slug || null;
+  }
+
+  /**
+   * Pomocnicza: pobiera następny numer strony dla gazetki
+   *
+   * Strony numerujemy od 1. Jeśli gazetka ma już 3 strony,
+   * następna będzie miała numer 4.
+   *
+   * @param flyerId - ID gazetki
+   * @returns następny dostępny numer strony (minimum 1)
+   */
+  private async getNextPageNumber(flyerId: string): Promise<number> {
+    const { data, error } = await this.supabase
+      .from("flyer_pages")
+      .select("page_number")
+      .eq("flyer_id", flyerId)
+      .order("page_number", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to get next page number:", { error, flyerId });
+      throw new Error("Database query failed");
+    }
+
+    if (!data) {
+      return 1;
+    }
+    return data.page_number + 1;
+  }
+
+  /**
+   * Tworzy rekordy stron gazetki w bazie
+   *
+   * Używane po uploadzie plików do storage.
+   * Tworzy wiele rekordów za jednym razem (bulk insert).
+   *
+   * @param flyerId - ID gazetki
+   * @param pages - tablica z danymi stron
+   * @returns utworzone strony jako DTO
+   *
+   * @throws Error jeśli insert się nie powiedzie
+   */
+  async createPages(
+    flyerId: string,
+    pages: {
+      pageNumber: number;
+      originalImagePath: string;
+      webImagePath: string;
+    }[]
+  ): Promise<AdminFlyerPageDetailDTO[]> {
+    const inserts = pages.map((page) => ({
+      flyer_id: flyerId,
+      page_number: page.pageNumber,
+      original_image_path: page.originalImagePath,
+      web_image_path: page.webImagePath,
+      status: "draft" as FlyerStatus,
+    }));
+
+    const { data, error } = await this.supabase
+      .from("flyer_pages")
+      .insert(inserts)
+      .select(
+        "id, page_number, original_image_path, web_image_path, status, raw_ai_data, error_message, created_at, updated_at, products (count)"
+      );
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to create flyer pages:", { error, flyerId, pages });
+      throw new Error("Database query failed");
+    }
+
+    return data.map((row) => ({
+      id: row.id,
+      page_number: row.page_number,
+      original_image_url: this.generateStorageUrl("raw_flyers", row.original_image_path),
+      web_image_url: this.generateStorageUrl("public_flyers", row.web_image_path ?? ""),
+      status: row.status,
+      product_count: row.products?.[0]?.count ?? 0,
+      has_raw_ai_data: row.raw_ai_data !== null,
+      error_message: row.error_message,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    }));
+  }
+
+  /**
+   * Pobiera pojedynczą stronę z raw_ai_data
+   *
+   * Używane w GET /api/admin/flyer-pages/:id
+   *
+   * @param pageId - ID strony
+   * @returns DTO z pełnymi danymi lub null jeśli nie znaleziono
+   */
+  async getFlyerPageById(pageId: string): Promise<AdminFlyerPageRawDTO | null> {
+    const { data, error } = await this.supabase
+      .from("flyer_pages")
+      .select(
+        "id, flyer_id, page_number, original_image_path, web_image_path, status, raw_ai_data, error_message, created_at, updated_at"
+      )
+      .eq("id", pageId)
+      .maybeSingle();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to get flyer page by id:", { error, pageId });
+      throw new Error("Database query failed");
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return {
+      id: data.id,
+      flyer_id: data.flyer_id,
+      page_number: data.page_number,
+      original_image_url: this.generateStorageUrl("raw_flyers", data.original_image_path ?? ""),
+      web_image_url: this.generateStorageUrl("public_flyers", data.web_image_path ?? ""),
+      status: data.status,
+      raw_ai_data: data.raw_ai_data as RawAIData | null,
+      error_message: data.error_message,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+    };
+  }
+
+  /**
+   * Aktualizuje status strony
+   *
+   * @param pageId - ID strony
+   * @param status - nowy status
+   * @returns zaktualizowane dane
+   */
+  async updatePageStatus(
+    pageId: string,
+    status: FlyerStatus
+  ): Promise<{ id: string; status: FlyerStatus; updated_at: string }> {
+    const { data, error } = await this.supabase
+      .from("flyer_pages")
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", pageId)
+      .select("id, status, updated_at")
+      .single();
+
+    if (error || !data) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to update page status:", { error, pageId, status });
+      throw new Error("Failed to update page status");
+    }
+
+    return data;
+  }
+
+  /**
+   * Usuwa stronę z bazy
+   *
+   * UWAGA: To tylko usuwa z bazy. Pliki ze Storage
+   * muszą być usunięte oddzielnie (w endpoincie).
+   *
+   * CASCADE - automatycznie usuwa powiązane produkty
+   * (zdefiniowane w DB schema)
+   *
+   * @param pageId - ID strony
+   * @returns true jeśli usunięto
+   */
+  async deletePage(pageId: string): Promise<boolean> {
+    const { error } = await this.supabase.from("flyer_pages").delete().eq("id", pageId);
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to delete page:", { error, pageId });
+      throw new Error("Failed to delete page from database");
+    }
+
+    return true;
   }
 }

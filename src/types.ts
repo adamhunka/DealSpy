@@ -684,3 +684,34 @@ export interface AdminFlyerListParams extends PaginationParams {
   status?: FlyerStatus;
   include_deleted?: boolean;
 }
+
+/**
+ * UploadedPageInfo - informacje o uploadowanej stronie
+ *
+ * Response item w POST /api/admin/flyers/:flyerId/pages
+ */
+export interface UploadedPageInfo {
+  id: string;
+  page_number: number;
+  original_image_url: string;
+  web_image_url: string;
+  status: FlyerStatus;
+  created_at: string;
+}
+
+/**
+ * UploadFlyerPagesResponse - pełny response z upload endpoint
+ */
+export interface UploadFlyerPagesResponse {
+  flyer_id: string;
+  uploaded_pages: UploadedPageInfo[];
+}
+
+/**
+ * ProcessPageResponse - response z process endpoint
+ */
+export interface ProcessPageResponse {
+  id: string;
+  status: FlyerStatus;
+  message: string;
+}

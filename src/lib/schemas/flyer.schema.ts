@@ -141,9 +141,37 @@ export const flyerProductsParamsSchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
+/**
+ * Schema walidacji dla ID strony gazetki
+ *
+ * Sprawdza czy przekazany ID jest poprawnym UUID
+ */
+export const flyerPageIdParamsSchema = z.object({
+  id: z.string().uuid("Invalid flyer page ID format"),
+});
+
+/**
+ * Schema dla body POST /api/admin/flyer-pages/:id/process
+ */
+export const processFlyerPageSchema = z.object({
+  reprocess: z.boolean().optional().default(false),
+});
+
+/**
+ * Schema dla body PATCH /api/admin/flyer-pages/:id
+ */
+export const updateFlyerPageSchema = z.object({
+  status: z.enum(["draft", "processing", "verification", "published"], {
+    errorMap: () => ({ message: "Invalid status value" }),
+  }),
+});
+
 export type FlyerListParams = z.infer<typeof flyerListParamsSchema>;
 export type AdminFlyerListParams = z.infer<typeof adminFlyerListParamsSchema>;
 export type CreateFlyerCommand = z.infer<typeof createFlyerSchema>;
 export type UpdateFlyerCommand = z.infer<typeof updateFlyerSchema>;
 export type FlyerIdParams = z.infer<typeof flyerIdParamsSchema>;
 export type FlyerProductsParams = z.infer<typeof flyerProductsParamsSchema>;
+export type FlyerPageIdParams = z.infer<typeof flyerPageIdParamsSchema>;
+export type ProcessFlyerPageSchema = z.infer<typeof processFlyerPageSchema>;
+export type UpdateFlyerPageCommand = z.infer<typeof updateFlyerPageSchema>;
