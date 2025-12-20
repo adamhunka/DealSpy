@@ -52,4 +52,24 @@ export class CategoryService {
 
     return this.transformToDTO(data);
   }
+
+  /**
+   * Sprawdza czy kategoria istnieje
+   * 
+   * Używane w admin endpoints do walidacji category_id
+   */
+  async checkCategoryExists(categoryId: string): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from("categories")
+      .select("id")
+      .eq("id", categoryId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Failed to check category existence:", { error, categoryId });
+      throw new Error("Database query failed");
+    }
+
+    return data !== null;
+  }
 }

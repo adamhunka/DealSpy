@@ -283,7 +283,7 @@ export class FlyerService {
    * Pomocnicza metoda używana przez /api/flyers/:id/products
    * żeby sprawdzić czy gazetka jest dostępna przed pobraniem produktów
    */
-  async checkFLyerExists(id: string): Promise<boolean> {
+  async checkFlyerExists(id: string): Promise<boolean> {
     const { data, error } = await this.supabase
       .from("flyers")
       .select("id")
@@ -295,6 +295,23 @@ export class FlyerService {
     if (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to check flyer exists:", { error, id });
+      throw new Error("Database query failed");
+    }
+
+    return data !== null;
+  }
+
+  /**
+   * Sprawdza czy strona gazetki istnieje
+   *
+   * Używane w admin endpoints do walidacji pageId
+   */
+  async checkFlyerPageExists(pageId: string): Promise<boolean> {
+    const { data, error } = await this.supabase.from("flyer_pages").select("id").eq("id", pageId).maybeSingle();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to check flyer page existence:", { error, pageId });
       throw new Error("Database query failed");
     }
 
@@ -504,7 +521,7 @@ export class FlyerService {
   async createFlyer(command: CreateFlyerCommand): Promise<AdminFlyerDetailDTO | null> {
     const { store_id, valid_from, valid_to } = command;
 
-    const storeExists = await this.checkFLyerExists(store_id);
+    const storeExists = await this.checkStoreExists(store_id);
     if (!storeExists) {
       return null;
     }

@@ -49,7 +49,7 @@ export const GET: APIRoute = async ({ params, url, locals }) => {
     }
 
     const flyerService = new FlyerService(supabase);
-    const exists = await flyerService.checkFLyerExists(validatedParams.id);
+    const exists = await flyerService.checkFlyerExists(validatedParams.id);
     if (!exists) {
       return createErrorResponse("NOT_FOUND", "Flyer not found or not available", 404);
     }

@@ -44,7 +44,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   }
 
   const flyerService = new FlyerService(locals.supabase);
-  const flyerExists = await flyerService.checkFLyerExists(validation.data.id);
+  const flyerExists = await flyerService.checkFlyerExists(validation.data.id);
 
   if (!flyerExists) {
     return createErrorResponse("NOT_FOUND", "Flyer not found", 404);
