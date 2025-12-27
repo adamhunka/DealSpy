@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@/db/supabase.client";
+import { supabaseAdmin } from "@/db/supabase.client";
 
 /**
  * Wynik sprawdzenia dostępu admina
@@ -26,36 +27,42 @@ interface AdminAccessResult {
 export async function checkAdminAccess(supabase: SupabaseClient): Promise<AdminAccessResult> {
   const {
     data: { session },
-    //error: sessionError,
+    error: sessionError,
   } = await supabase.auth.getSession();
 
-  // if (sessionError || !session) {
-  //   return {
-  //     isAdmin: false,
-  //     userId: null,
-  //     error: "UNAUTHORIZED",
-  //   };
-  // }
+  if (sessionError || !session) {
+    return {
+      isAdmin: false,
+      userId: null,
+      error: "UNAUTHORIZED",
+    };
+  }
 
   const userId = session?.user?.id ?? null;
-  const isAdmin = userId ? await checkUserRole(supabase, userId) : null;
 
-  // if (!isAdmin) {
-  //   return {
-  //     isAdmin: false,
-  //     userId,
-  //     error: "FORBIDDEN",
-  //   };
-  // }
+  // Używamy supabaseAdmin do sprawdzenia roli (omija RLS i infinite recursion)
+  const isAdmin = userId ? await checkUserRole(userId) : false;
+
+  if (!isAdmin) {
+    return {
+      isAdmin: false,
+      userId,
+      error: "FORBIDDEN",
+    };
+  }
 
   return {
-    isAdmin: isAdmin ?? false,
+    isAdmin: true,
     userId: userId ?? null,
   };
 }
 
-async function checkUserRole(supabase: SupabaseClient, userId: string): Promise<boolean> {
-  const { data, error } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
+/**
+ * Sprawdza rolę użytkownika w bazie danych
+ * Używa supabaseAdmin aby ominąć RLS
+ */
+async function checkUserRole(userId: string): Promise<boolean> {
+  const { data, error } = await supabaseAdmin.from("profiles").select("role").eq("id", userId).maybeSingle();
 
   if (error) {
     // eslint-disable-next-line no-console

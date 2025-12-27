@@ -431,6 +431,40 @@ export interface ProfileDTO {
  */
 
 // ----------------------------------------------------------------------------
+// Auth Commands
+// ----------------------------------------------------------------------------
+
+/**
+ * LoginCommand - dane do logowania
+ *
+ * Endpoint: POST /api/auth/login
+ */
+export interface LoginCommand {
+  email: string;
+  password: string;
+}
+
+/**
+ * LoginResponse - odpowiedź z API logowania
+ *
+ * Endpoint: POST /api/auth/login
+ */
+export interface LoginResponse {
+  success: boolean;
+  redirect_url: string;
+}
+
+/**
+ * LogoutResponse - odpowiedź z API wylogowania
+ *
+ * Endpoint: POST /api/auth/logout
+ */
+export interface LogoutResponse {
+  success: boolean;
+  redirect_url: string;
+}
+
+// ----------------------------------------------------------------------------
 // Store Commands
 // ----------------------------------------------------------------------------
 

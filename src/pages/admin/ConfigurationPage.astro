@@ -1,5 +1,6 @@
 ---
 import Layout from "@/layouts/Layout.astro";
+import LogoutButton from "@/components/admin/LogoutButton";
 import { checkAdminAccess } from "@/lib/helpers/auth.helper";
 import { ConfigService } from "@/lib/services/config.service";
 import type { ConfigDTO } from "@/types";
@@ -7,14 +8,11 @@ import ConfigurationPanel from "@/components/admin/ConfigurationPanel";
 
 const supabase = Astro.locals.supabase;
 
-const { isAdmin, error: authError } = await checkAdminAccess(supabase);
-
-if (authError === "UNAUTHORIZED") {
-  return Astro.redirect("/login");
-}
+// Middleware już sprawdził uprawnienia, ale dla pewności dodajemy check
+const { isAdmin } = await checkAdminAccess(supabase);
 
 if (!isAdmin) {
-  return new Response("Forbidden - Admin access required", { status: 403 });
+  return Astro.redirect("/admin/login");
 }
 
 let configs: ConfigDTO[] = [];
@@ -33,9 +31,20 @@ try {
 <Layout title="Ustawienia | DealSpy Admin">
   <main class="container mx-auto px-4 py-8">
     <!-- Nagłówek strony -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold">Ustawienia systemu</h1>
-      <p class="text-muted-foreground mt-2">Zarządzaj konfiguracją systemu i promptami AI</p>
+    <div class="mb-8 flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">Ustawienia systemu</h1>
+        <p class="text-muted-foreground mt-2">Zarządzaj konfiguracją systemu i promptami AI</p>
+      </div>
+      <div class="flex gap-4">
+        <a
+          href="/admin"
+          class="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          ← Dashboard
+        </a>
+        <LogoutButton client:load />
+      </div>
     </div>
 
     <!-- Obsługa błędu pobierania danych -->

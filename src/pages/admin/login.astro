@@ -1,0 +1,33 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import LoginForm from '@/components/admin/LoginForm';
+import { checkAdminAccess } from '@/lib/helpers/auth.helper';
+
+const supabase = Astro.locals.supabase;
+
+// Sprawdź czy użytkownik jest już zalogowany
+const { isAdmin } = await checkAdminAccess(supabase);
+
+// Jeśli użytkownik jest już zalogowany jako admin, przekieruj do dashboardu
+if (isAdmin) {
+  return Astro.redirect('/admin');
+}
+---
+
+<Layout title="Logowanie - Panel Administratora">
+  <main class="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div class="w-full max-w-md space-y-8">
+      <div>
+        <h1 class="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          Panel Administratora
+        </h1>
+        <p class="mt-2 text-center text-sm text-gray-600">
+          Zaloguj się aby zarządzać treścią
+        </p>
+      </div>
+      
+      <LoginForm client:load />
+    </div>
+  </main>
+</Layout>
+

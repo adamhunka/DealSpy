@@ -1,0 +1,57 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import LogoutButton from "@/components/admin/LogoutButton";
+import { checkAdminAccess } from "@/lib/helpers/auth.helper";
+
+const supabase = Astro.locals.supabase;
+
+// Middleware już sprawdził uprawnienia, ale dla pewności dodajemy check
+const { isAdmin, userId } = await checkAdminAccess(supabase);
+
+if (!isAdmin) {
+  return Astro.redirect("/admin/login");
+}
+
+// Pobierz dane użytkownika
+const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", userId!).single();
+---
+
+<Layout title="Panel Administratora - DealSpy">
+  <main class="min-h-screen bg-gray-50 p-8">
+    <div class="mx-auto max-w-7xl">
+      <div class="mb-8 flex items-center justify-between">
+        <div>
+          <h1 class="text-3xl font-bold text-gray-900">Panel Administratora</h1>
+          <p class="mt-2 text-gray-600">
+            Witaj, {profile?.full_name || profile?.email || "Administrator"}!
+          </p>
+        </div>
+        <LogoutButton client:load />
+      </div>
+
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <!-- Sklepy -->
+        <a href="/admin/stores" class="block rounded-lg bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+          <h2 class="text-xl font-semibold text-gray-900">Sklepy</h2>
+          <p class="mt-2 text-gray-600">Zarządzaj sklepami i logotypami</p>
+        </a>
+
+        <!-- Konfiguracja -->
+        <a
+          href="/admin/configuration"
+          class="block rounded-lg bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+        >
+          <h2 class="text-xl font-semibold text-gray-900">Konfiguracja</h2>
+          <p class="mt-2 text-gray-600">Ustawienia systemu</p>
+        </a>
+
+        <!-- Gazetki (placeholder) -->
+        <div class="block rounded-lg bg-white p-6 shadow-sm opacity-50">
+          <h2 class="text-xl font-semibold text-gray-900">Gazetki</h2>
+          <p class="mt-2 text-gray-600">Zarządzaj gazetkami promocyjnymi</p>
+          <span class="mt-2 inline-block text-sm text-gray-500">Wkrótce</span>
+        </div>
+      </div>
+    </div>
+  </main>
+</Layout>
