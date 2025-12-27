@@ -26,44 +26,39 @@ interface AdminAccessResult {
 export async function checkAdminAccess(supabase: SupabaseClient): Promise<AdminAccessResult> {
   const {
     data: { session },
-    error: sessionError,
+    //error: sessionError,
   } = await supabase.auth.getSession();
 
-  if (sessionError || !session) {
-    return {
-      isAdmin: false,
-      userId: null,
-      error: "UNAUTHORIZED",
-    };
-  }
+  // if (sessionError || !session) {
+  //   return {
+  //     isAdmin: false,
+  //     userId: null,
+  //     error: "UNAUTHORIZED",
+  //   };
+  // }
 
-  const userId = session.user.id;
-  const isAdmin = await checkUserRole(supabase, userId);
+  const userId = session?.user?.id ?? null;
+  const isAdmin = userId ? await checkUserRole(supabase, userId) : null;
 
-  if (!isAdmin) {
-    return {
-      isAdmin: false,
-      userId,
-      error: "FORBIDDEN",
-    };
-  }
+  // if (!isAdmin) {
+  //   return {
+  //     isAdmin: false,
+  //     userId,
+  //     error: "FORBIDDEN",
+  //   };
+  // }
 
   return {
-    isAdmin: true,
-    userId,
+    isAdmin: isAdmin ?? false,
+    userId: userId ?? null,
   };
 }
 
-/**
- * Sprawdza czy użytkownik ma rolę admin
- *
- * Implementacja zależy od architektury projektu.
- * Poniżej dwie możliwe opcje:
- */
 async function checkUserRole(supabase: SupabaseClient, userId: string): Promise<boolean> {
   const { data, error } = await supabase.from("profiles").select("role").eq("id", userId).maybeSingle();
 
   if (error) {
+    // eslint-disable-next-line no-console
     console.error("Failed to check user role:", { error, userId });
     return false;
   }

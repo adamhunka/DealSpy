@@ -19,9 +19,46 @@ export const storeSlugParamSchema = z.object({
 });
 
 /**
+ * Schema dla tworzenia nowego sklepu
+ *
+ * Endpoint: POST /api/admin/stores
+ */
+export const createStoreSchema = z.object({
+  name: z
+    .string({ required_error: "Nazwa jest wymagana" })
+    .min(1, "Nazwa jest wymagana")
+    .max(100, "Nazwa moe mieć maksymalnie 100 znaków")
+    .trim(),
+  slug: slugSchema,
+  logo_file: z.string().optional(),
+});
+
+/**
+ * Schema dla aktualizacji sklepu
+ *
+ * Endpoint: PUT /api/admin/stores/:id
+ *
+ * Wszystkie pola opcjonalne - można zaktualizować tylko wybrane
+ */
+export const updateStoreSchema = z.object({
+  name: z
+    .string()
+    .min(1, "Nazwa nie moe być pusta")
+    .max(100, "Nazwa moe mieć maksymalnie 100 znaków")
+    .trim()
+    .optional(),
+
+  slug: slugSchema.optional(),
+
+  logo_file: z.string().optional(),
+});
+
+/**
  * TypeScript type wygenerowany ze schema
  *
  * Używamy z.infer<> do automatycznego wygenerowania typu
  * Dzięki temu mamy pewność, że type zawsze jest zgodny ze schema
  */
 export type StoreSlugParams = z.infer<typeof storeSlugParamSchema>;
+export type CreateStoreCommand = z.infer<typeof createStoreSchema>;
+export type UpdateStoreCommand = z.infer<typeof updateStoreSchema>;

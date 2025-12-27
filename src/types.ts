@@ -458,6 +458,16 @@ export interface UpdateStoreCommand {
   logo_file?: string;
 }
 
+/**
+ * DeleteStoreCommand - typ dla deleteStore
+ *
+ * Endpoint: DELETE /api/admin/stores/:id
+ */
+export interface DeleteStoreCommand {
+  id: string;
+  force?: boolean;
+}
+
 // ----------------------------------------------------------------------------
 // Flyer Commands
 // ----------------------------------------------------------------------------

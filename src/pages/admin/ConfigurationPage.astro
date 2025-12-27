@@ -1,0 +1,56 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import { checkAdminAccess } from "@/lib/helpers/auth.helper";
+import { ConfigService } from "@/lib/services/config.service";
+import type { ConfigDTO } from "@/types";
+import ConfigurationPanel from "@/components/admin/ConfigurationPanel";
+
+const supabase = Astro.locals.supabase;
+
+const { isAdmin, error: authError } = await checkAdminAccess(supabase);
+
+if (authError === "UNAUTHORIZED") {
+  return Astro.redirect("/login");
+}
+
+if (!isAdmin) {
+  return new Response("Forbidden - Admin access required", { status: 403 });
+}
+
+let configs: ConfigDTO[] = [];
+let fetchError: string | null = null;
+
+try {
+  const configService = new ConfigService(supabase);
+  configs = await configService.getAllConfigs();
+} catch (error) {
+  // eslint-disable-next-line no-console
+  console.error("Error fetching configs:", error);
+  fetchError = "Nie udało się pobrać konfiguracji";
+}
+---
+
+<Layout title="Ustawienia | DealSpy Admin">
+  <main class="container mx-auto px-4 py-8">
+    <!-- Nagłówek strony -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold">Ustawienia systemu</h1>
+      <p class="text-muted-foreground mt-2">Zarządzaj konfiguracją systemu i promptami AI</p>
+    </div>
+
+    <!-- Obsługa błędu pobierania danych -->
+    {fetchError && <div class="bg-destructive/10 text-destructive p-4 rounded-lg mb-6">{fetchError}</div>}
+
+    <ConfigurationPanel client:load initialConfigs={configs} />
+
+    <!-- Debug: wyświetl dane w development -->
+    {
+      import.meta.env.DEV && (
+        <details class="mt-8">
+          <summary class="cursor-pointer text-sm text-muted-foreground">Debug: dane z serwera</summary>
+          <pre class="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto">{JSON.stringify(configs, null, 2)}</pre>
+        </details>
+      )
+    }
+  </main>
+</Layout>

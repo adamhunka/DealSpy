@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@/db/supabase.client";
-import type { Store, StoreDTO } from "@/types";
+import type { Store, StoreDTO, CreateStoreCommand, UpdateStoreCommand } from "@/types";
 
 /**
  * Type reprezentujący Store bez pola updated_at
@@ -144,5 +144,133 @@ export class StoreService {
     }
 
     return this.transformToDTO(data);
+  }
+
+  /**
+   * Sprawdza czy sklep o podanym slug już istnieje
+   * @param slug - slug do sprawdzenia
+   * @param excludeId - opcjonalnie wyklucz sklep o tym ID (dla update)
+   * @returns true jeśli slug jest zajęty
+   */
+  async checkStoreSlugExists(slug: string, excludeId?: string): Promise<boolean> {
+    let query = this.supabase.from("stores").select("id").eq("slug", slug);
+
+    if (excludeId) {
+      query = query.neq("id", excludeId);
+    }
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to check slug existence:", { error, slug, excludeId });
+      throw new Error("Database query failed");
+    }
+    return !!data;
+  }
+
+  /**
+   * Tworzy nowy sklep w bazie danych
+   *
+   * Przeplływ:
+   * 1. Wstawienie do bazy danych
+   * 2. Przygotowanie logo (jeśli podane)
+   * 3. Zwrócenie utworzonego sklepu
+   *
+   * @param command - CreateStoreCommand (name, slug, logo_file)
+   * @returns Promise<StoreDTO> - utworzony sklep
+   * @throws Error gdy wstawienie do bazy się nie powiedzie
+   */
+  async createStore(command: CreateStoreCommand): Promise<StoreDTO | null> {
+    const { name, slug } = command;
+
+    const exists = await this.checkStoreSlugExists(slug);
+
+    if (exists) {
+      throw new Error("Sklep o podanym slug już istnieje");
+    }
+
+    const logoPath = null;
+
+    const { data: storeData, error: insertError } = await this.supabase
+      .from("stores")
+      .insert({ name, slug, logo_path: logoPath })
+      .select("id, name, slug, logo_path, created_at")
+      .single();
+
+    if (insertError) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to create store in database:", insertError);
+      throw new Error("Database query failed");
+    }
+
+    return this.transformToDTO(storeData);
+  }
+
+  async updateStore(id: string, command: UpdateStoreCommand): Promise<StoreDTO | null> {
+    const { name, slug, logo_file } = command;
+
+    const { data: existingStore, error: checkError } = await this.supabase
+      .from("stores")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (checkError) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to check store existence:", { error: checkError, id });
+      throw new Error("Database query failed");
+    }
+
+    if (!existingStore) {
+      return null;
+    }
+
+    const updateData: Partial<Store> = {};
+    if (name !== undefined) updateData.name = name;
+    if (slug !== undefined) updateData.slug = slug;
+    if (logo_file !== undefined) updateData.logo_path = logo_file;
+
+    const { data, error } = await this.supabase
+      .from("stores")
+      .update(updateData)
+      .eq("id", id)
+      .select("id, name, slug, logo_path, created_at")
+      .single();
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to update store in database:", error);
+      throw new Error("Database query failed");
+    }
+
+    return this.transformToDTO(data);
+  }
+
+  async deleteStore(id: string): Promise<boolean> {
+    const { data: existingStore, error: checkError } = await this.supabase
+      .from("stores")
+      .select("id")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (checkError) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to check store existence:", { error: checkError, id });
+      throw new Error("Database query failed");
+    }
+
+    if (!existingStore) {
+      return false;
+    }
+
+    const { error: deleteError } = await this.supabase.from("stores").delete().eq("id", id);
+
+    if (deleteError) {
+      // eslint-disable-next-line no-console
+      console.error("Failed to delete store in database:", deleteError);
+      throw new Error("Database query failed");
+    }
+
+    return true;
   }
 }

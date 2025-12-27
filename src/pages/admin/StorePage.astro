@@ -1,0 +1,55 @@
+---
+import Layout from "@/layouts/Layout.astro";
+//import { checkAdminAccess } from "@/lib/helpers/auth.helper";
+import { StoreService } from "@/lib/services/store.service";
+import type { StoreDTO } from "@/types";
+import { StoresPanel } from "@/components/admin/StoresPanel";
+
+const supabase = Astro.locals.supabase;
+
+// const { isAdmin, error: authError } = await checkAdminAccess(supabase);
+
+// if (authError === "UNAUTHORIZED") {
+//   return Astro.redirect("/login");
+// }
+
+// if (!isAdmin) {
+//   return new Response("Forbidden - Admin access required", { status: 403 });
+// }
+
+let stores: StoreDTO[] = [];
+let fetchError: string | null = null;
+
+try {
+  const storeService = new StoreService(supabase);
+  stores = await storeService.getAllStores();
+} catch (error) {
+  // eslint-disable-next-line no-console
+  console.error("Error fetching stores:", error);
+  fetchError = "Nie udało się pobrać sklepów";
+}
+---
+
+<Layout title="Sklepy | DealSpy Admin">
+  <main class="container mx-auto px-4 py-8">
+    <!-- Nagłówek strony -->
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold">Sklepy</h1>
+      <p class="text-muted-foreground mt-2">Zarządzaj sklepami i ich logotypami</p>
+    </div>
+
+    <!-- Obsługa błędu pobierania danych -->
+    {fetchError && <div class="bg-destructive/10 text-destructive p-4 rounded-lg mb-6">{fetchError}</div>}
+
+    <StoresPanel client:load initialStores={stores} />
+
+    {
+      import.meta.env.DEV && (
+        <details class="mt-8">
+          <summary class="cursor-pointer text-sm text-muted-foreground">Debug: dane z serwera</summary>
+          <pre class="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto">{JSON.stringify(stores, null, 2)}</pre>
+        </details>
+      )
+    }
+  </main>
+</Layout>
