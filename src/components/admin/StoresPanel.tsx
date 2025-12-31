@@ -68,7 +68,7 @@ export function StoresPanel({ initialStores }: StoresPanelProps) {
           throw new Error("Brak sklepu do edycji");
         }
 
-        const response = await fetch(`api/admin/stores/${editingStore.id}`, {
+        const response = await fetch(`/api/admin/stores/${editingStore.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
@@ -106,7 +106,7 @@ export function StoresPanel({ initialStores }: StoresPanelProps) {
     }
 
     try {
-      const response = await fetch("/api/admin/stores/${deletingStore.id}", {
+      const response = await fetch(`/api/admin/stores/${deletingStore.id}`, {
         method: "DELETE",
       });
 
@@ -116,7 +116,7 @@ export function StoresPanel({ initialStores }: StoresPanelProps) {
       }
 
       setStores((prev) => prev.filter((s) => s.id !== deletingStore.id));
-      toast.success('Sklep "${deletingStore.name}" został usunięty');
+      toast.success(`Sklep "${deletingStore.name}" został usunięty`);
       setDeletingStore(null);
     } catch (error) {
       if (error instanceof Error) {

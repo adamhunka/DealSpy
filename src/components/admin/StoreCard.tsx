@@ -13,7 +13,7 @@ export function StoreCard({ store, onEdit, onDelete }: StoreCardProps) {
   return (
     <Card className="overflow-hidden">
       {/* Logo */}
-      <CardHeader className="p-4 pg-muted/50">
+      <CardHeader className="p-4 bg-muted/50">
         <div className="flex items-center justify-center h-20">
           <img
             src={store.logo_url}
@@ -28,8 +28,8 @@ export function StoreCard({ store, onEdit, onDelete }: StoreCardProps) {
       {/* Zawartość nazwa i slug */}
       <CardContent className="p-4">
         <h3 className="font-semibold text-lg">{store.name}</h3>
-        <p className="text-sm text-mutedforeground mt-1">/{store.slug}</p>
-        <p className="text-us text-muted-foreground mt-2">
+        <p className="text-sm text-muted-foreground mt-1">/{store.slug}</p>
+        <p className="text-xs text-muted-foreground mt-2">
           Dodano: {new Date(store.created_at).toLocaleDateString("pl-PL")}
         </p>
       </CardContent>
@@ -39,7 +39,7 @@ export function StoreCard({ store, onEdit, onDelete }: StoreCardProps) {
           <Pencil className="mr-2 h-4 w-4" />
           Edytuj
         </Button>
-        <Button variant="destructive" size="sm" onCanPlay={onDelete}>
+        <Button variant="destructive" size="sm" onClick={onDelete}>
           <Trash2 className="mr-2 h-4 w-4" />
           Usuń
         </Button>

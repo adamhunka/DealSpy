@@ -222,7 +222,7 @@ export function StoreFormDialog({ isOpen, onOpenChange, mode, store, onSave }: S
           <DialogTitle>{mode === "create" ? "Dodaj sklep" : `Edytuj sklep: ${store?.name}`}</DialogTitle>
           <DialogDescription>
             {mode === "create"
-              ? "Wypełnij ponisze pola aby dodać nowy sklep do systemu."
+              ? "Wypełnij poniższe pola aby dodać nowy sklep do systemu."
               : `Zaktualizuj dane sklepu: ${store?.name}. Zmiany zostaną zapisane po kliknięciu "Zapisz".`}
           </DialogDescription>
         </DialogHeader>

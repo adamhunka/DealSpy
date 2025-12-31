@@ -2,6 +2,21 @@ import { z } from "zod";
 import { slugSchema } from "./common.schema";
 
 /**
+ * Schema walidacji parametru ID dla store
+ *
+ * Wymagania:
+ * - ID musi być prawidłowym UUID (format xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+ *
+ * Dlaczego UUID?
+ * - Bezpieczeństwo: nie można zgadnąć ID innych sklepów
+ * - Unikalność: gwarantowana przez bazę danych
+ * - Zgodność z Supabase/PostgreSQL
+ */
+export const storeIdParamSchema = z.object({
+  id: z.string().uuid("Nieprawidłowe ID sklepu"),
+});
+
+/**
  * Schema walidacji parametru slug dla store
  *
  * Wymagania:
@@ -59,6 +74,7 @@ export const updateStoreSchema = z.object({
  * Używamy z.infer<> do automatycznego wygenerowania typu
  * Dzięki temu mamy pewność, że type zawsze jest zgodny ze schema
  */
+export type StoreIdParams = z.infer<typeof storeIdParamSchema>;
 export type StoreSlugParams = z.infer<typeof storeSlugParamSchema>;
 export type CreateStoreCommand = z.infer<typeof createStoreSchema>;
 export type UpdateStoreCommand = z.infer<typeof updateStoreSchema>;

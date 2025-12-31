@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { ConfigService } from "@/lib/services/config.service";
-import { configKeySchema, updateConfigSchema } from "@/lib/schemas/config.schema";
+import { configKeyParamSchema, updateConfigSchema } from "@/lib/schemas/config.schema";
 import { createSuccessResponse, createErrorResponse, formatZodErrors } from "@/lib/helpers/api-response.helper";
 import { checkAdminAccess } from "@/lib/helpers/auth.helper";
 
@@ -37,16 +37,14 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    const key = context.params.key;
-    if (!key) {
-      return createErrorResponse("VALIDATION_ERROR", "Key parameter is required", 400);
+    // Walidacja parametru key
+    const keyValidation = configKeyParamSchema.safeParse({ key: context.params.key });
+    if (!keyValidation.success) {
+      return createErrorResponse("VALIDATION_ERROR", "Invalid key parameter", 400, formatZodErrors(keyValidation.error));
     }
 
-    // Walidacja klucza
-    const validatedKey = configKeySchema.parse(key);
-
     const configService = new ConfigService(context.locals.supabase);
-    const config = await configService.getConfigByKey(validatedKey);
+    const config = await configService.getConfigByKey(keyValidation.data.key);
 
     if (!config) {
       return createErrorResponse("NOT_FOUND", "Configuration key not found", 404);
@@ -54,6 +52,7 @@ export const GET: APIRoute = async (context) => {
 
     return createSuccessResponse(config);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error("Error fetching config by key:", error);
 
     // Obsługa błędów walidacji Zod
@@ -98,13 +97,11 @@ export const PUT: APIRoute = async (context) => {
   }
 
   try {
-    const key = context.params.key;
-    if (!key) {
-      return createErrorResponse("VALIDATION_ERROR", "Key parameter is required", 400);
+    // Walidacja parametru key
+    const keyValidation = configKeyParamSchema.safeParse({ key: context.params.key });
+    if (!keyValidation.success) {
+      return createErrorResponse("VALIDATION_ERROR", "Invalid key parameter", 400, formatZodErrors(keyValidation.error));
     }
-
-    // Walidacja klucza
-    const validatedKey = configKeySchema.parse(key);
 
     // Parsowanie i walidacja body
     let body;
@@ -114,13 +111,17 @@ export const PUT: APIRoute = async (context) => {
       return createErrorResponse("VALIDATION_ERROR", "Invalid JSON in request body", 400);
     }
 
-    const validatedBody = updateConfigSchema.parse(body);
+    const bodyValidation = updateConfigSchema.safeParse(body);
+    if (!bodyValidation.success) {
+      return createErrorResponse("VALIDATION_ERROR", "Invalid request data", 400, formatZodErrors(bodyValidation.error));
+    }
 
     const configService = new ConfigService(context.locals.supabase);
-    const config = await configService.upsertConfig(validatedKey, validatedBody);
+    const config = await configService.upsertConfig(keyValidation.data.key, bodyValidation.data);
 
     return createSuccessResponse(config);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error("Error upserting config:", error);
 
     // Obsługa błędów walidacji Zod

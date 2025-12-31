@@ -53,7 +53,7 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg">
-      <h3 className="text-lg font-semiblod"> Edycja: {config.key}</h3>
+      <h3 className="text-lg font-semibold"> Edycja: {config.key}</h3>
 
       <div className="space-y-2">
         <label htmlFor="config-value" className="text-sm font-medium">
@@ -91,7 +91,7 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
           disabled={isSaving}
           className="w-full p-2 border rounded-lg"
         />
-        <p className="txt-sm text-muted-foreground text-right">{description.length}/500</p>
+        <p className="text-sm text-muted-foreground text-right">{description.length}/500</p>
       </div>
 
       <div className="flex justify-end gap-2 pt-4">
@@ -106,7 +106,7 @@ export function ConfigEditor({ config, onSave, onCancel }: ConfigEditorProps) {
         <button
           type="submit"
           disabled={isSaving || !!jsonError}
-          className="px-4 py-2 bg-primary tex-primary-foreground rounded-lg disabled:opacity-50"
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg disabled:opacity-50"
         >
           {isSaving ? "Zapisywanie..." : "Zapisz"}
         </button>

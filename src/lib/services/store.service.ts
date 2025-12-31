@@ -111,6 +111,32 @@ export class StoreService {
   }
 
   /**
+   * Pobiera pojedynczy sklep po ID
+   *
+   * @param id - UUID sklepu
+   * @returns Promise<StoreDTO | null> - sklep lub null jeśli nie znaleziono
+   * @throws Error gdy zapytanie do bazy się nie powiedzie
+   */
+  async getStoreById(id: string): Promise<StoreDTO | null> {
+    const { data, error } = await this.supabase
+      .from("stores")
+      .select("id, name, slug, logo_path, created_at")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (error) {
+      console.error(`Failed to fetch store with id "${id}":`, error);
+      throw new Error("Database query failed");
+    }
+
+    if (!data) {
+      return null;
+    }
+
+    return this.transformToDTO(data);
+  }
+
+  /**
    * Pobiera pojedynczy sklep po slug
    *
    * Przepływ:
@@ -186,7 +212,7 @@ export class StoreService {
     const exists = await this.checkStoreSlugExists(slug);
 
     if (exists) {
-      throw new Error("Sklep o podanym slug już istnieje");
+      throw new Error("SLUG_EXISTS");
     }
 
     const logoPath = null;
@@ -223,6 +249,14 @@ export class StoreService {
 
     if (!existingStore) {
       return null;
+    }
+
+    // Sprawdź czy slug nie jest zajęty przez inny sklep
+    if (slug !== undefined) {
+      const slugExists = await this.checkStoreSlugExists(slug, id);
+      if (slugExists) {
+        throw new Error("SLUG_EXISTS");
+      }
     }
 
     const updateData: Partial<Store> = {};
