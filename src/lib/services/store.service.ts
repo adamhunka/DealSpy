@@ -50,7 +50,7 @@ export class StoreService {
    */
   private transformToDTO(store: StoreSelect): StoreDTO {
     const logoUrl = store.logo_path
-      ? this.supabase.storage.from("storage-logos").getPublicUrl(store.logo_path).data.publicUrl
+      ? this.supabase.storage.from("store-logos").getPublicUrl(store.logo_path).data.publicUrl
       : this.getDefaultLogoUrl();
 
     return {
@@ -65,15 +65,21 @@ export class StoreService {
   /**
    * Zwraca URL domyślnego loga (gdy sklep nie ma własnego)
    *
-   * Dlaczego osobna metoda?
-   * - Łatwo zmienić domyślne logo w jednym miejscu
-   * - Reużywalna
-   * - Czytelny kod w transformToDTO()
+   * Zwraca data URL z prostym SVG placeholder zamiast próbować
+   * załadować nieistniejący plik ze storage.
    *
-   * @returns URL do domyślnego loga
+   * @returns Data URL z SVG placeholder
    */
   private getDefaultLogoUrl(): string {
-    return this.supabase.storage.from("store-logos").getPublicUrl("default.webp").data.publicUrl;
+    // SVG placeholder - prosty szary kwadrat z ikoną sklepu
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#f3f4f6"/><path fill="#9ca3af" d="M50 30h100v10H50zm0 20h100v10H50zm0 20h100v80c0 5.523-4.477 10-10 10H60c-5.523 0-10-4.477-10-10z"/></svg>`;
+    
+    // Koduj SVG dla data URL (URL-safe)
+    const encoded = encodeURIComponent(svg)
+      .replace(/'/g, "%27")
+      .replace(/"/g, "%22");
+    
+    return `data:image/svg+xml,${encoded}`;
   }
 
   /**
@@ -198,16 +204,17 @@ export class StoreService {
    * Tworzy nowy sklep w bazie danych
    *
    * Przeplływ:
-   * 1. Wstawienie do bazy danych
-   * 2. Przygotowanie logo (jeśli podane)
-   * 3. Zwrócenie utworzonego sklepu
+   * 1. Sprawdzenie unikalności slug
+   * 2. Upload logo (jeśli podane)
+   * 3. Wstawienie do bazy danych
+   * 4. Zwrócenie utworzonego sklepu
    *
    * @param command - CreateStoreCommand (name, slug, logo_file)
    * @returns Promise<StoreDTO> - utworzony sklep
    * @throws Error gdy wstawienie do bazy się nie powiedzie
    */
   async createStore(command: CreateStoreCommand): Promise<StoreDTO | null> {
-    const { name, slug } = command;
+    const { name, slug, logo_file } = command;
 
     const exists = await this.checkStoreSlugExists(slug);
 
@@ -215,7 +222,17 @@ export class StoreService {
       throw new Error("SLUG_EXISTS");
     }
 
-    const logoPath = null;
+    // Upload logo jeśli podane
+    let logoPath: string | null = null;
+    if (logo_file) {
+      try {
+        logoPath = await this.uploadLogo(slug, logo_file);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to upload logo:", error);
+        // Kontynuujemy bez logo - można to poprawić później
+      }
+    }
 
     const { data: storeData, error: insertError } = await this.supabase
       .from("stores")
@@ -237,7 +254,7 @@ export class StoreService {
 
     const { data: existingStore, error: checkError } = await this.supabase
       .from("stores")
-      .select("id")
+      .select("id, slug")
       .eq("id", id)
       .maybeSingle();
 
@@ -252,7 +269,7 @@ export class StoreService {
     }
 
     // Sprawdź czy slug nie jest zajęty przez inny sklep
-    if (slug !== undefined) {
+    if (slug !== undefined && slug !== existingStore.slug) {
       const slugExists = await this.checkStoreSlugExists(slug, id);
       if (slugExists) {
         throw new Error("SLUG_EXISTS");
@@ -262,7 +279,19 @@ export class StoreService {
     const updateData: Partial<Store> = {};
     if (name !== undefined) updateData.name = name;
     if (slug !== undefined) updateData.slug = slug;
-    if (logo_file !== undefined) updateData.logo_path = logo_file;
+    
+    // Upload nowego logo jeśli podane
+    if (logo_file !== undefined && logo_file !== null) {
+      try {
+        const newSlug = slug || existingStore.slug;
+        const logoPath = await this.uploadLogo(newSlug, logo_file);
+        updateData.logo_path = logoPath;
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to upload logo:", error);
+        // Kontynuujemy update bez logo
+      }
+    }
 
     const { data, error } = await this.supabase
       .from("stores")
@@ -283,7 +312,7 @@ export class StoreService {
   async deleteStore(id: string): Promise<boolean> {
     const { data: existingStore, error: checkError } = await this.supabase
       .from("stores")
-      .select("id")
+      .select("id, logo_path")
       .eq("id", id)
       .maybeSingle();
 
@@ -297,6 +326,17 @@ export class StoreService {
       return false;
     }
 
+    // Usuń logo ze storage jeśli istnieje
+    if (existingStore.logo_path) {
+      try {
+        await this.supabase.storage.from("store-logos").remove([existingStore.logo_path]);
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error("Failed to delete logo from storage:", error);
+        // Kontynuujemy usuwanie sklepu mimo błędu
+      }
+    }
+
     const { error: deleteError } = await this.supabase.from("stores").delete().eq("id", id);
 
     if (deleteError) {
@@ -306,5 +346,50 @@ export class StoreService {
     }
 
     return true;
+  }
+
+  /**
+   * Upload logo do Supabase Storage
+   *
+   * @param storeSlug - slug sklepu (używany w nazwie pliku)
+   * @param base64Data - logo jako base64 string (data:image/png;base64,...)
+   * @returns ścieżka do pliku w storage
+   */
+  private async uploadLogo(storeSlug: string, base64Data: string): Promise<string> {
+    // Wyodrębnij MIME type i dane z base64
+    const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+    
+    if (!matches || matches.length !== 3) {
+      throw new Error("Invalid base64 data format");
+    }
+
+    const mimeType = matches[1];
+    const base64Content = matches[2];
+
+    // Konwertuj base64 do buffer
+    const buffer = Buffer.from(base64Content, "base64");
+
+    // Określ rozszerzenie pliku na podstawie MIME type
+    const extension = mimeType.split("/")[1] || "png";
+    
+    // Unikalna nazwa pliku: slug + timestamp
+    const timestamp = Date.now();
+    const fileName = `${storeSlug}-${timestamp}.${extension}`;
+
+    // Upload do Supabase Storage
+    const { data, error } = await this.supabase.storage
+      .from("store-logos")
+      .upload(fileName, buffer, {
+        contentType: mimeType,
+        upsert: true,
+      });
+
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.error("Storage upload error:", error);
+      throw new Error(`Failed to upload logo: ${error.message}`);
+    }
+
+    return data.path;
   }
 }
