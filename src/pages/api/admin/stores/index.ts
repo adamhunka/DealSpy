@@ -1,6 +1,7 @@
 // src/pages/api/admin/stores/index.ts
 import type { APIRoute } from "astro";
 import { createStoreSchema } from "@/lib/schemas/store.schema";
+import { supabaseAdmin } from "@/db/supabase.client";
 import { createErrorResponse, createSuccessResponse, formatZodErrors } from "@/lib/helpers/api-response.helper";
 import { checkAdminAccess } from "@/lib/helpers/auth.helper";
 import { StoreService } from "@/lib/services/store.service";
@@ -26,7 +27,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return createErrorResponse("VALIDATION_ERROR", "Invalid data", 400, formatZodErrors(validation.error));
     }
 
-    const storeService = new StoreService(locals.supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const storeService = new StoreService(supabaseAdmin);
     const newStore = await storeService.createStore(validation.data);
 
     return createSuccessResponse(newStore, 201);
@@ -63,12 +65,13 @@ export const GET: APIRoute = async ({ locals }) => {
   }
 
   try {
-    // Delegacja do serwisu
-    const storeService = new StoreService(supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const storeService = new StoreService(supabaseAdmin);
     const stores = await storeService.getAllStores();
 
     return createSuccessResponse(stores);
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error("Error fetching stores:", error);
     return createErrorResponse("INTERNAL_SERVER_ERROR", "Failed to fetch stores", 500);
   }

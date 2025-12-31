@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { ConfigService } from "@/lib/services/config.service";
+import { supabaseAdmin } from "@/db/supabase.client";
 import { configKeyParamSchema, updateConfigSchema } from "@/lib/schemas/config.schema";
 import { createSuccessResponse, createErrorResponse, formatZodErrors } from "@/lib/helpers/api-response.helper";
 import { checkAdminAccess } from "@/lib/helpers/auth.helper";
@@ -43,7 +44,8 @@ export const GET: APIRoute = async (context) => {
       return createErrorResponse("VALIDATION_ERROR", "Invalid key parameter", 400, formatZodErrors(keyValidation.error));
     }
 
-    const configService = new ConfigService(context.locals.supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const configService = new ConfigService(supabaseAdmin);
     const config = await configService.getConfigByKey(keyValidation.data.key);
 
     if (!config) {
@@ -116,7 +118,8 @@ export const PUT: APIRoute = async (context) => {
       return createErrorResponse("VALIDATION_ERROR", "Invalid request data", 400, formatZodErrors(bodyValidation.error));
     }
 
-    const configService = new ConfigService(context.locals.supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const configService = new ConfigService(supabaseAdmin);
     const config = await configService.upsertConfig(keyValidation.data.key, bodyValidation.data);
 
     return createSuccessResponse(config);

@@ -1,6 +1,7 @@
 // src/pages/api/admin/stores/[id].ts
 import type { APIRoute } from "astro";
 import { storeIdParamSchema, updateStoreSchema } from "@/lib/schemas/store.schema";
+import { supabaseAdmin } from "@/db/supabase.client";
 import { createErrorResponse, createSuccessResponse, formatZodErrors } from "@/lib/helpers/api-response.helper";
 import { checkAdminAccess } from "@/lib/helpers/auth.helper";
 import { StoreService } from "@/lib/services/store.service";
@@ -25,7 +26,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
   }
 
   try {
-    const storeService = new StoreService(locals.supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const storeService = new StoreService(supabaseAdmin);
     const store = await storeService.getStoreById(idValidation.data.id);
 
     if (!store) {
@@ -65,7 +67,8 @@ export const PUT: APIRoute = async ({ params, request, locals }) => {
       return createErrorResponse("VALIDATION_ERROR", "Invalid data", 400, formatZodErrors(validation.error));
     }
 
-    const storeService = new StoreService(locals.supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const storeService = new StoreService(supabaseAdmin);
     const updatedStore = await storeService.updateStore(idValidation.data.id, validation.data);
 
     if (!updatedStore) {
@@ -107,7 +110,8 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   }
 
   try {
-    const storeService = new StoreService(locals.supabase);
+    // Używamy supabaseAdmin aby ominąć RLS i uniknąć infinite recursion
+    const storeService = new StoreService(supabaseAdmin);
     const deleted = await storeService.deleteStore(idValidation.data.id);
 
     if (!deleted) {
