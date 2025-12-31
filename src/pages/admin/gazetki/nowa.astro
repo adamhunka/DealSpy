@@ -1,0 +1,110 @@
+---
+import Layout from "@/layouts/Layout.astro";
+import LogoutButton from "@/components/admin/LogoutButton";
+import { checkAdminAccess } from "@/lib/helpers/auth.helper";
+import { StoreService } from "@/lib/services/store.service";
+import { supabaseAdmin } from "@/db/supabase.client";
+import type { StoreDTO, StoreOption } from "@/types";
+import { FlyerCreatorForm } from "@/components/admin/FlyerCreatorForm";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
+
+const supabase = Astro.locals.supabase;
+
+// Middleware już sprawdził uprawnienia, ale dla pewności dodajemy check
+const { isAdmin } = await checkAdminAccess(supabase);
+
+if (!isAdmin) {
+  return Astro.redirect("/admin/login");
+}
+
+let stores: StoreDTO[] = [];
+let storeOptions: StoreOption[] = [];
+let fetchError: string | null = null;
+
+try {
+  // Używamy supabaseAdmin aby ominąć RLS
+  const storeService = new StoreService(supabaseAdmin);
+  stores = await storeService.getAllStores();
+
+  // Mapowanie StoreDTO na StoreOption
+  storeOptions = stores.map((store) => ({
+    id: store.id,
+    name: store.name,
+    slug: store.slug,
+    logo_url: store.logo_url,
+  }));
+} catch (error) {
+  // eslint-disable-next-line no-console
+  console.error("Error fetching stores:", error);
+  fetchError = "Nie udało się pobrać listy sklepów";
+}
+
+const hasNoStores = storeOptions.length === 0;
+---
+
+<Layout title="Nowa gazetka | DealSpy Admin">
+  <main class="container mx-auto px-4 py-8">
+    <!-- Nagłówek strony -->
+    <div class="mb-8 flex items-center justify-between">
+      <div>
+        <h1 class="text-3xl font-bold">Nowa gazetka promocyjna</h1>
+        <p class="text-muted-foreground mt-2">Wgraj nową gazetkę do systemu</p>
+      </div>
+      <div class="flex gap-4">
+        <a
+          href="/admin/gazetki"
+          class="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          ← Lista gazetek
+        </a>
+        <a
+          href="/admin"
+          class="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+        >
+          Dashboard
+        </a>
+        <LogoutButton client:load />
+      </div>
+    </div>
+
+    <!-- Obsługa błędu pobierania danych -->
+    {
+      fetchError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Błąd</AlertTitle>
+          <AlertDescription>{fetchError}</AlertDescription>
+        </Alert>
+      )
+    }
+
+    <!-- Brak sklepów - wyświetl komunikat -->
+    {
+      hasNoStores && !fetchError ? (
+        <Alert className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Brak sklepów</AlertTitle>
+          <AlertDescription>
+            Dodaj przynajmniej jeden sklep przed utworzeniem gazetki.
+            <a href="/admin/sklepy" class="ml-2 font-medium underline underline-offset-4">
+              Przejdź do zarządzania sklepami →
+            </a>
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <FlyerCreatorForm client:load stores={storeOptions} initialAutoProcess={true} />
+      )
+    }
+
+    {
+      import.meta.env.DEV && (
+        <details class="mt-8">
+          <summary class="cursor-pointer text-sm text-muted-foreground">Debug: dane z serwera</summary>
+          <pre class="mt-2 p-4 bg-muted rounded-lg text-xs overflow-auto">{JSON.stringify({ stores, storeOptions }, null, 2)}</pre>
+        </details>
+      )
+    }
+  </main>
+</Layout>
+

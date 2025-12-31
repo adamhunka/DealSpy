@@ -759,3 +759,118 @@ export interface ProcessPageResponse {
   status: FlyerStatus;
   message: string;
 }
+
+// ============================================================================
+// SEKCJA 6: VIEWMODEL TYPY - FRONTEND KOMPONENTY
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// New Flyer Creator (Admin Panel)
+// ----------------------------------------------------------------------------
+
+/**
+ * StoreOption - uproszczona reprezentacja sklepu dla selecta
+ *
+ * Źródło: mapowanie z StoreDTO lub Store entity
+ */
+export interface StoreOption {
+  id: string; // UUID sklepu
+  name: string; // Nazwa wyświetlana (np. "Biedronka")
+  slug: string; // Slug dla URL
+  logo_url?: string; // Opcjonalnie URL do loga (dla wizualizacji w select)
+}
+
+/**
+ * FileUploadItem - reprezentacja pojedynczego pliku w uploaderze
+ *
+ * Zawiera plik, jego stan, podgląd i informacje o uploadzie
+ */
+export interface FileUploadItem {
+  id: string; // Unikalny identyfikator (UUID v4)
+  file: File; // Obiekt File z przeglądarki
+  preview: string; // Data URL dla podglądu miniatury
+  status: FileUploadStatus; // Status uploadu
+  progress?: number; // Postęp uploadu 0-100 (tylko dla 'uploading')
+  error?: string; // Komunikat błędu (tylko dla 'error')
+  pageId?: string; // ID strony po uploadzie (tylko dla 'success')
+}
+
+/**
+ * FileUploadStatus - możliwe stany pliku
+ */
+export type FileUploadStatus =
+  | "pending" // Plik wybrany, czeka na upload
+  | "validating" // Walidacja w toku
+  | "invalid" // Plik nie przeszedł walidacji
+  | "uploading" // Upload w toku
+  | "success" // Upload zakończony sukcesem
+  | "error"; // Błąd podczas uploadu
+
+/**
+ * FileValidationError - błąd walidacji pliku
+ */
+export interface FileValidationError {
+  fileName: string;
+  error: string; // Komunikat błędu
+  code: "INVALID_TYPE" | "FILE_TOO_LARGE" | "INVALID_NAME";
+}
+
+/**
+ * FlyerCreatorFormState - główny stan formularza
+ *
+ * Zawiera wszystkie dane potrzebne do utworzenia gazetki
+ */
+export interface FlyerCreatorFormState {
+  // Metadane
+  storeId: string | null;
+  validFrom: string; // ISO date string (YYYY-MM-DD)
+  validTo: string; // ISO date string (YYYY-MM-DD)
+
+  // Pliki
+  files: FileUploadItem[];
+
+  // Opcje
+  autoProcess: boolean;
+
+  // Stan procesu
+  flyerId: string | null; // ID utworzonej gazetki (po POST /api/admin/flyers)
+  uploadStatus: UploadStatus;
+  currentStep: string; // Komunikat o bieżącym kroku
+  overallProgress: number; // Całkowity postęp 0-100
+  uploadError: string | null;
+}
+
+/**
+ * UploadStatus - status całego procesu uploadu
+ */
+export type UploadStatus =
+  | "idle" // Początkowy stan
+  | "creating_flyer" // Tworzenie rekordu gazetki (POST /api/admin/flyers)
+  | "uploading_files" // Upload plików (POST /api/admin/flyers/:id/pages)
+  | "processing_ai" // Uruchamianie AI (POST /api/admin/flyer-pages/:id/process)
+  | "success" // Wszystko zakończone sukcesem
+  | "error"; // Błąd krytyczny
+
+/**
+ * FlyerCreatorFormErrors - błędy walidacji formularza
+ */
+export interface FlyerCreatorFormErrors {
+  store?: string;
+  validFrom?: string;
+  validTo?: string;
+  dateRange?: string; // Błąd związany z zakresem dat
+  files?: string; // Ogólny błąd plików
+  fileValidation?: FileValidationError[]; // Szczegółowe błędy per plik
+}
+
+/**
+ * UploadProgressInfo - informacje o postępie dla UploadProgress component
+ */
+export interface UploadProgressInfo {
+  status: UploadStatus;
+  progress: number; // 0-100
+  currentStep: string;
+  filesTotal: number;
+  filesUploaded: number;
+  error?: string;
+}
